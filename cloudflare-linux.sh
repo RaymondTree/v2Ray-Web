@@ -117,6 +117,7 @@ M_zh[bdl_how]="可手动下载后放到空目录，再用 CF_BUNDLE_URL 指定";
 M_zh[bdl_bad]="站点包内容不完整（缺 %s）"; M_en[bdl_bad]="Bundle is incomplete (missing %s)"
 M_zh[bdl_retry]="下载失败（第 %s 次），重试中…"; M_en[bdl_retry]="Download failed (attempt %s), retrying…"
 M_zh[bdl_manual]="若持续失败，请手动下载后重跑："; M_en[bdl_manual]="If it keeps failing, download manually and rerun:"
+M_zh[bdl_fallback]="直链失败，改用 GitHub API 通道重试…"; M_en[bdl_fallback]="Direct link failed, retrying via the GitHub API…"
 
 M_zh[key_title]="计算资源指纹"; M_en[key_title]="Hashing assets"
 M_zh[key_n]="共 %s 个文件"; M_en[key_n]="%s files"
@@ -195,6 +196,18 @@ pick() {  # pick <提示> <数量> → 结果写入 REPLY_PICK (1-based)
   done
 }
 jq_py() { python3 -c "$1"; }
+fetch_api_asset() {  # 经 api.github.com 取 Release 资产（github.com 不通时的回退通道）
+  local aid="$1" o="$2" i=1
+  while [ "$i" -le 3 ]; do
+    if curl -fsSL --connect-timeout 20 --retry 2 --retry-all-errors \
+            -H "Accept: application/octet-stream" -o "$o" \
+            "https://api.github.com/repos/$REPO/releases/assets/$aid" 2>/dev/null; then
+      return 0
+    fi
+    i=$((i+1)); [ "$i" -le 3 ] && sleep 3
+  done
+  return 1
+}
 fetch_retry() {  # fetch_retry <url> <outfile>；网络抖动时重试 4 轮
   local u="$1" o="$2" i=1
   while [ "$i" -le 4 ]; do
@@ -454,22 +467,32 @@ except Exception: sys.exit(0)
 if not isinstance(d,list) or not d: sys.exit(0)
 r=d[0]
 print(r.get("tag_name",""))
+asset=None
 for a in r.get("assets",[]):
-    if a["name"].endswith(".tar.gz"): print(a["browser_download_url"]); break
-else:
+    if a["name"].endswith(".tar.gz"): asset=a; break
+if asset is None:
     for a in r.get("assets",[]):
-        if a["name"].endswith(".zip"): print(a["browser_download_url"]); break
+        if a["name"].endswith(".zip"): asset=a; break
+if asset:
+    print(asset["browser_download_url"])
+    print(asset["id"])
+else:
+    print(""); print("")
 ' 2>/dev/null || true)
-  TAG="${B_INFO[0]:-}"; BUNDLE_URL="${B_INFO[1]:-}"
+  TAG="${B_INFO[0]:-}"; BUNDLE_URL="${B_INFO[1]:-}"; ASSET_ID="${B_INFO[2]:-}"
   [ -n "$TAG" ] && ok "$(t bdl_found "$TAG")"
 fi
 [ -n "$BUNDLE_URL" ] || { bad "$(t bdl_fail)"; dim "  $(t bdl_how)"; exit 1; }
 
 info "$(t bdl_down)"
 case "$BUNDLE_URL" in
-  *.zip) fetch_retry "$BUNDLE_URL" "$WORK/b.zip" || { bad "$(t bdl_fail)"; dim "  $(t bdl_manual)"; dim "  $BUNDLE_URL"; die "$(t bdl_how)"; }
+  *.zip) fetch_retry "$BUNDLE_URL" "$WORK/b.zip" \
+           || { warn "$(t bdl_fallback)"; fetch_api_asset "${ASSET_ID:-0}" "$WORK/b.zip"; } \
+           || { bad "$(t bdl_fail)"; dim "  $(t bdl_manual)"; dim "  $BUNDLE_URL"; die "$(t bdl_how)"; }
          ( cd "$DIST" && unzip -qo "$WORK/b.zip" ) || die "$(t bdl_fail)" ;;
-  *)     fetch_retry "$BUNDLE_URL" "$WORK/b.tgz" || { bad "$(t bdl_fail)"; dim "  $(t bdl_manual)"; dim "  $BUNDLE_URL"; die "$(t bdl_how)"; }
+  *)     fetch_retry "$BUNDLE_URL" "$WORK/b.tgz" \
+           || { warn "$(t bdl_fallback)"; fetch_api_asset "${ASSET_ID:-0}" "$WORK/b.tgz"; } \
+           || { bad "$(t bdl_fail)"; dim "  $(t bdl_manual)"; dim "  $BUNDLE_URL"; die "$(t bdl_how)"; }
          tar xzf "$WORK/b.tgz" -C "$DIST" || die "$(t bdl_fail)" ;;
 esac
 for f in index.html app.js sw.js worker.js wasm_exec.js xray.wasm _headers; do
