@@ -31,10 +31,16 @@ BUNDLE_URL="${CF_BUNDLE_URL:-}"
 
 # ── 颜色 ─────────────────────────────────────────────────────────────────────
 if [ -t 1 ]; then
-  C_RST=$'\033[0m';  C_RED=$'\033[31m';  C_GRN=$'\033[32m'
-  C_YEL=$'\033[33m'; C_CYA=$'\033[36m';  C_BLD=$'\033[1m'; C_DIM=$'\033[2m'
+  C_RST=$'\033[0m'
+  C_RED=$'\033[38;2;230;57;70m'      # coral-mid  #e63946
+  C_GRN=$'\033[38;2;0;229;204m'     # cyan-bright #00e5cc
+  C_YEL=$'\033[38;2;255;176;32m'    # amber       #ffb020
+  C_CYA=$'\033[38;2;136;146;176m'   # info        #8892b0
+  C_BLD=$'\033[1m'
+  C_DIM=$'\033[38;2;90;100;128m'    # muted       #5a6480
+  C_ACC=$'\033[38;2;255;77;77m'     # accent coral#ff4d4d
 else
-  C_RST=''; C_RED=''; C_GRN=''; C_YEL=''; C_CYA=''; C_BLD=''; C_DIM=''
+  C_RST=''; C_RED=''; C_GRN=''; C_YEL=''; C_CYA=''; C_BLD=''; C_DIM=''; C_ACC=''
 fi
 ok()   { printf '%s✔%s %s\n'   "$C_GRN" "$C_RST" "$*"; }
 bad()  { printf '%s✘%s %s\n'   "$C_RED" "$C_RST" "$*" >&2; }
@@ -58,27 +64,24 @@ step_name() {  # step_name <key> → 标题
   esac
 }
 
-render_tree() {  # 清屏 + 渲染步骤树（当前步骤 ▶ 高亮，已完成 ✓）
-  printf '\033[H\033[2J'
-  local n=${#STEPS[@]} i nm branch mark color
-  printf '  %sXray-Web · Cloudflare Pages%s\n' "$C_BLD$C_CYA" "$C_RST"
+render_tree() {  # 开头画一次静态流程树（顶格、最左侧）
+  local n=${#STEPS[@]} i nm branch
+  printf '%sXray-Web · Cloudflare Pages%s\n' "$C_BLD$C_ACC" "$C_RST"
   for ((i=0; i<n; i++)); do
     nm="$(step_name "${STEPS[$i]}")"
     if [ $i -eq $((n-1)) ]; then branch='└─'; else branch='├─'; fi
-    if [ $i -lt $CUR_STEP ]; then mark='✓'; color="$C_GRN"
-    elif [ $i -eq $CUR_STEP ]; then mark='▶'; color="$C_CYA$C_BLD"
-    else mark='·'; color="$C_DIM"; fi
-    printf '  %s%s %s %s%s\n' "$color" "$branch" "$mark" "$nm" "$C_RST"
+    printf '%s%s %s%s\n' "$C_DIM" "$branch" "$nm" "$C_RST"
   done
-  printf '  %s%s%s\n\n' "$C_DIM" "────────────────────────────────" "$C_RST"
+  printf '%s%s%s\n' "$C_DIM" "──────────────────────────────" "$C_RST"
 }
 
-step() {  # step <key>：推进树到该步骤并重绘
-  local key="$1" i
+step() {  # step <key>：输出 [n/7] 阶段标题（openclaw 流式风格，不重画树）
+  local key="$1" i idx=-1
   for ((i=0; i<${#STEPS[@]}; i++)); do
-    if [ "${STEPS[$i]}" = "$key" ]; then CUR_STEP=$i; break; fi
+    if [ "${STEPS[$i]}" = "$key" ]; then idx=$i; break; fi
   done
-  render_tree
+  CUR_STEP=$idx
+  printf '\n%s[%d/%d] %s%s\n' "$C_BLD$C_ACC" $((idx+1)) ${#STEPS[@]} "$(step_name "$key")" "$C_RST"
 }
 die()  { bad "$*"; exit 1; }
 
@@ -312,10 +315,13 @@ is_tty() { [ -t 0 ] && [ -t 1 ]; }
 # ① 语言
 # =============================================================================
 printf '\033[H\033[2J'
-printf '  %sXray-Web · Cloudflare Pages%s\n' "$C_BLD$C_CYA" "$C_RST"
+printf '  %sXray-Web · Cloudflare Pages%s\n' "$C_BLD$C_ACC" "$C_RST"
 printf '  %shttps://github.com/%s%s\n\n' "$C_DIM" "$REPO" "$C_RST"
 menu "请选择语言 / Select language" "中文" "English"
 [ "$REPLY_PICK" = "1" ] && LANG="en"
+printf '\033[H\033[2J'
+render_tree
+printf '\n'
 step lang
 dim "  $(t subtitle)"
 
