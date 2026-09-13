@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Xray-Web</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">◈</span>
+      <h1>Xray-Web</h1>
+    </div>
+  </header>
+
+  <main class="layout">
+    <!-- 左栏 -->
+    <section class="panel left">
+      <div class="card">
+        <div class="card-head">
+          <h2>设置</h2>
+          <span id="statusBadge" class="badge idle">未连接</span>
+        </div>
+
+        <div id="customFields">
+          <div class="field">
+            <label>IP地址</label>
+            <input id="inpAddress" type="text" placeholder="0.0.0.0" />
+          </div>
+          <div class="field row2">
+            <div>
+              <label>端口</label>
+              <input id="inpPort" type="number" min="1" max="65535" placeholder="port" />
+            </div>
+            <div>
+              <label>TLS SNI</label>
+              <input id="inpSni" type="text" placeholder="example.com" />
+            </div>
+          </div>
+          <div class="field">
+            <label>UUID</label>
+            <input id="inpUuid" type="text" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+          </div>
+          <div class="field">
+            <label>WebSocket 路径</label>
+            <input id="inpWsPath" type="text" placeholder="/" value="/" />
+          </div>
+        </div>
+
+        <div class="actions">
+          <button id="btnConnect" class="btn primary">连接</button>
+          <button id="btnDisconnect" class="btn" disabled>断开</button>
+          <button id="btnSaveConfig" class="btn">保存</button>
+          <button id="btnExportCfg" class="btn" title="复制当前节点的 vless:// 链接">导出</button>
+          <button id="btnImportCfg" class="btn" title="粘贴 vless:// 链接恢复配置">导入</button>
+        </div>
+      </div>
+
+      <!-- 日志：左栏下方 -->
+      <section class="log-section card">
+        <div class="log-head">
+          <h2>日志</h2>
+          <div class="log-actions">
+            <select id="logFilter">
+              <option value="all">all</option>
+              <option value="info">info</option>
+              <option value="warn">warn</option>
+              <option value="error">error</option>
+            </select>
+            <button id="btnClearLog" class="btn small">清空</button>
+            <button id="btnExportLog" class="btn small">导出</button>
+          </div>
+        </div>
+        <div id="logPanel" class="log-body"></div>
+        <div class="log-stats">
+          <span>流量统计：<b id="statUp">0 B</b> 上行 / <b id="statDown">0 B</b> 下行</span>
+          <span>请求数：<b id="statReq">0</b></span>
+        </div>
+      </section>
+    </section>
+
+    <!-- 右栏 -->
+    <section class="panel right">
+      <div class="card browser-card" id="browserCard">
+        <!-- 工具行 -->
+        <div class="browser-bar" id="browserBar">
+          <span id="browserStatus">就绪</span>
+          <span class="bar-sep"></span>
+          <button id="btnBack" class="btn small icon-btn" title="后退">◀</button>
+          <button id="btnForward" class="btn small icon-btn" title="前进">▶</button>
+          <button id="btnRefresh" class="btn small icon-btn" title="刷新">↻</button>
+          <input id="inpUrl" type="url" placeholder="https://example.com" value="https://example.com" />
+          <button id="btnGo" class="btn primary small">GO</button>
+          <button id="btnFullscreen" class="btn small icon-btn" title="全屏显示">⛶</button>
+        </div>
+        <iframe id="browserView" title="代理浏览容器" sandbox="allow-scripts allow-same-origin allow-forms allow-downloads"></iframe>
+      </div>
+    </section>
+  </main>
+
+  <script src="app.js" type="module"></script>
+</body>
+</html>
