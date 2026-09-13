@@ -41,7 +41,45 @@ bad()  { printf '%s✘%s %s\n'   "$C_RED" "$C_RST" "$*" >&2; }
 warn() { printf '%s▲%s %s\n'   "$C_YEL" "$C_RST" "$*"; }
 info() { printf '%s·%s %s\n'   "$C_CYA" "$C_RST" "$*"; }
 dim()  { printf '%s%s%s\n'     "$C_DIM" "$*" "$C_RST"; }
-step() { printf '\n%s▸ %s%s\n' "$C_BLD$C_CYA" "$*" "$C_RST"; }
+# ── 步骤树（左侧导航）────────────────────────────────────────────────────────
+# 7 个主要步骤；step 推进时清屏重绘左侧树
+STEPS=(lang token acct site bundle upload deploy)
+CUR_STEP=-1
+
+step_name() {  # step_name <key> → 标题
+  case "$1" in
+    lang)   [ "$LANG" = en ] && echo "Language"  || echo "语言" ;;
+    token)  [ "$LANG" = en ] && echo "API Token" || echo "API 令牌" ;;
+    acct)   [ "$LANG" = en ] && echo "Account"   || echo "账户" ;;
+    site)   [ "$LANG" = en ] && echo "Site"      || echo "站点" ;;
+    bundle) [ "$LANG" = en ] && echo "Download"  || echo "下载" ;;
+    upload) [ "$LANG" = en ] && echo "Upload"    || echo "上传" ;;
+    deploy) [ "$LANG" = en ] && echo "Deploy"    || echo "部署" ;;
+  esac
+}
+
+render_tree() {  # 清屏 + 渲染步骤树（当前步骤 ▶ 高亮，已完成 ✓）
+  printf '\033[H\033[2J'
+  local n=${#STEPS[@]} i nm branch mark color
+  printf '  %sXray-Web · Cloudflare Pages%s\n' "$C_BLD$C_CYA" "$C_RST"
+  for ((i=0; i<n; i++)); do
+    nm="$(step_name "${STEPS[$i]}")"
+    if [ $i -eq $((n-1)) ]; then branch='└─'; else branch='├─'; fi
+    if [ $i -lt $CUR_STEP ]; then mark='✓'; color="$C_GRN"
+    elif [ $i -eq $CUR_STEP ]; then mark='▶'; color="$C_CYA$C_BLD"
+    else mark='·'; color="$C_DIM"; fi
+    printf '  %s%s %s %s%s\n' "$color" "$branch" "$mark" "$nm" "$C_RST"
+  done
+  printf '  %s%s%s\n\n' "$C_DIM" "────────────────────────────────" "$C_RST"
+}
+
+step() {  # step <key>：推进树到该步骤并重绘
+  local key="$1" i
+  for ((i=0; i<${#STEPS[@]}; i++)); do
+    if [ "${STEPS[$i]}" = "$key" ]; then CUR_STEP=$i; break; fi
+  done
+  render_tree
+}
 die()  { bad "$*"; exit 1; }
 
 # ── 多语言 ───────────────────────────────────────────────────────────────────
@@ -167,10 +205,6 @@ _tty_read() {  # 普通读取 → REPLY_INPUT
   if [ -r /dev/tty ]; then read -r REPLY_INPUT < /dev/tty 2>/dev/null
   else read -r REPLY_INPUT 2>/dev/null; fi
 }
-_tty_read_secret() {  # 不回显读取 → REPLY_INPUT
-  if [ -r /dev/tty ]; then read -rs REPLY_INPUT < /dev/tty 2>/dev/null
-  else read -rs REPLY_INPUT 2>/dev/null; fi
-}
 ask() {  # ask <提示> [默认值]  → 结果写入 REPLY_INPUT
   local p="$1" def="${2:-}"
   if [ -n "$def" ]; then printf '%s%s%s [%s]: ' "$C_BLD" "$p" "$C_RST" "$def"
@@ -178,22 +212,61 @@ ask() {  # ask <提示> [默认值]  → 结果写入 REPLY_INPUT
   _tty_read || { printf '\n'; no_tty; }
   REPLY_INPUT="${REPLY_INPUT:-$def}"
 }
-ask_secret() {  # 不回显
-  local p="$1"
-  printf '%s%s%s: ' "$C_BLD" "$p" "$C_RST"
-  _tty_read_secret || { printf '\n'; no_tty; }
-  printf '\n'
+# 从 /dev/tty 读一个键 → REPLY_KEY（up/down/enter/esc/其他字符）
+_tty_read_key() {
+  local k k2 k3
+  if [ -r /dev/tty ]; then IFS= read -rsn1 k < /dev/tty 2>/dev/null
+  else IFS= read -rsn1 k 2>/dev/null; fi
+  if [[ "$k" == $'\x1b' ]]; then
+    IFS= read -rsn1 -t 0.02 k2 < /dev/tty 2>/dev/null || true
+    IFS= read -rsn1 -t 0.02 k3 < /dev/tty 2>/dev/null || true
+    case "$k2$k3" in
+      '[A'|'OA') REPLY_KEY='up' ;;
+      '[B'|'OB') REPLY_KEY='down' ;;
+      *) REPLY_KEY='esc' ;;
+    esac
+  elif [[ "$k" == '' ]]; then REPLY_KEY='enter'
+  else REPLY_KEY="$k"; fi
 }
-pick() {  # pick <提示> <数量> → 结果写入 REPLY_PICK (1-based)
-  local p="$1" n="$2" ans
+
+# menu <提示> <选项...> → REPLY_PICK（0-based 下标）
+# 方向键 ↑↓ 移动，回车确认；也支持按数字直接选
+menu() {
+  local prompt="$1"; shift
+  local -a opts=("$@")
+  local n=${#opts[@]} cur=0 key first=1
+  [ "$n" -eq 0 ] && { REPLY_PICK=0; return; }
+
+  printf '%s%s%s\n' "$C_BLD" "$prompt" "$C_RST"
+
+  _draw() {
+    local i
+    if [ "$first" = 1 ]; then first=0
+    else printf '\033[%dA' "$n"; fi
+    for ((i=0; i<n; i++)); do
+      printf '\033[2K'
+      if [ $i -eq $cur ]; then
+        printf '  %s▸ %s%s\n' "$C_CYA$C_BLD" "${opts[$i]}" "$C_RST"
+      else
+        printf '   %s%s%s\n' "$C_DIM" "${opts[$i]}" "$C_RST"
+      fi
+    done
+  }
+
+  _draw
+  printf '\033[?25l'   # 隐藏光标
   while :; do
-    ask "$p" ""
-    ans="$REPLY_INPUT"
-    if [[ "$ans" =~ ^[0-9]+$ ]] && [ "$ans" -ge 1 ] && [ "$ans" -le "$n" ]; then
-      REPLY_PICK="$ans"; return 0
-    fi
-    bad "$(t op_pick)"
+    _tty_read_key
+    key="$REPLY_KEY"
+    case "$key" in
+      up)   [ "$cur" -gt 0 ]       && { cur=$((cur-1)); _draw; } ;;
+      down) [ "$cur" -lt $((n-1)) ] && { cur=$((cur+1)); _draw; } ;;
+      enter) break ;;
+      [1-9]) if [ "$key" -ge 1 ] && [ "$key" -le "$n" ]; then cur=$((key-1)); break; fi ;;
+    esac
   done
+  printf '\033[?25h'   # 恢复光标
+  REPLY_PICK=$cur
 }
 jq_py() { python3 -c "$1"; }
 fetch_api_asset() {  # 经 api.github.com 取 Release 资产（github.com 不通时的回退通道）
@@ -238,19 +311,17 @@ is_tty() { [ -t 0 ] && [ -t 1 ]; }
 # =============================================================================
 # ① 语言
 # =============================================================================
-printf '\n%s%s%s\n' "$C_BLD$C_CYA" "Xray-Web · Cloudflare Pages" "$C_RST"
-dim "https://github.com/$REPO"
-printf '\n'
-printf '  1) 中文\n  2) English\n\n'
-ask "请选择语言 / Select language" "1"
-[ "$REPLY_INPUT" = "2" ] && LANG="en"
-printf '\n%s%s%s\n' "$C_BLD" "$(t title)" "$C_RST"
-dim "$(t subtitle)"
+printf '\033[H\033[2J'
+printf '  %sXray-Web · Cloudflare Pages%s\n' "$C_BLD$C_CYA" "$C_RST"
+printf '  %shttps://github.com/%s%s\n\n' "$C_DIM" "$REPO" "$C_RST"
+menu "请选择语言 / Select language" "中文" "English"
+[ "$REPLY_PICK" = "1" ] && LANG="en"
+step lang
+dim "  $(t subtitle)"
 
 # =============================================================================
 # ② 环境自检 + 自动修复
 # =============================================================================
-step "$(t env_check)"
 
 PM=""; SUDO=""
 if   command -v apt-get >/dev/null 2>&1; then PM="apt-get"
@@ -303,6 +374,7 @@ ok "$(t env_ok)"
 # =============================================================================
 # ③ 获取 API Token
 # =============================================================================
+step token
 TOKEN="${CF_API_TOKEN:-}"
 if [ -n "$TOKEN" ]; then
   info "CF_API_TOKEN ✔"
@@ -316,7 +388,7 @@ else
     printf '\n'
     printf '  %s%s%s\n' "$C_DIM" "$(t tok_hint "b")" "$C_RST"
     hr
-    ask_secret "  $(t tok_label)"
+    ask "  $(t tok_label)"
     TOKEN="$REPLY_INPUT"
 
     if [ "$TOKEN" = "b" ] || [ "$TOKEN" = "B" ]; then
@@ -334,7 +406,7 @@ else
     fi
     [ -n "$TOKEN" ] || { bad "$(t tok_bad)"; tries=$((tries-1)); continue; }
 
-    step "$(t tok_verify)"
+    info "$(t tok_verify)"
     VR=$(curl -sS --connect-timeout 20 -H "Authorization: Bearer $TOKEN" "$API/user/tokens/verify" 2>/dev/null)
     if [ "$(printf '%s' "$VR" | jstatus)" = "active" ]; then
       ok "$(t tok_ok)"
@@ -351,7 +423,7 @@ fi
 # =============================================================================
 # ④ 确定 account_id
 # =============================================================================
-step "$(t acct_check)"
+step acct
 AID="${CF_ACCOUNT_ID:-}"
 if [ -z "$AID" ]; then
   ACC=$(curl -sS --connect-timeout 20 -H "Authorization: Bearer $TOKEN" "$API/accounts" 2>/dev/null)
@@ -366,10 +438,10 @@ for a in (d.get("result") or []): print(a["id"] + "\t" + a["name"])
     AID="${ACC_LINES[0]%%$'\t'*}"; ANAME="${ACC_LINES[0]#*$'\t'}"
     ok "$(t acct_auto "$ANAME")"
   elif [ "${#ACC_LINES[@]}" -gt 1 ]; then
-    info "$(t acct_pick)"
-    i=0; for l in "${ACC_LINES[@]}"; do i=$((i+1)); printf '  %s%d)%s %s\n' "$C_BLD" "$i" "$C_RST" "${l#*$'\t'}"; done
-    pick "$(t op_pick)" "$i"
-    AID="${ACC_LINES[$((REPLY_PICK-1))]%%$'\t'*}"
+    _acc_names=()
+    for _al in "${ACC_LINES[@]}"; do _acc_names+=("${_al#*$'\t'}"); done
+    menu "$(t acct_pick)" "${_acc_names[@]}"
+    AID="${ACC_LINES[$REPLY_PICK]%%$'\t'*}"
   fi
 fi
 if [ -z "$AID" ]; then
@@ -402,22 +474,19 @@ for p in (d.get("result") or []):
 PROJECT="${CF_PROJECT:-}"
 BRANCH="main"
 if [ -z "$PROJECT" ]; then
-  step "$(t op_q)"
-  printf '  %s1)%s %s\n' "$C_BLD" "$C_RST" "$(t op_1)"
-  printf '  %s2)%s %s\n' "$C_BLD" "$C_RST" "$(t op_2)"
-  printf '\n'
-  ask "$(t op_pick)" "1"
-  MODE="$REPLY_INPUT"
+  step site
+  menu "$(t op_q)" "$(t op_1)" "$(t op_2)"
+  if [ "$REPLY_PICK" = "1" ]; then MODE="2"; else MODE="1"; fi
 
   if [ "$MODE" = "2" ]; then
     readarray -t PROJ_LINES < <(projects_tsv)
     if [ "${#PROJ_LINES[@]}" -eq 0 ] || [ -z "${PROJ_LINES[0]}" ]; then
       warn "$(t upd_none)"; MODE="1"
     else
-      step "$(t upd_q)"
-      i=0; for l in "${PROJ_LINES[@]}"; do i=$((i+1)); printf '  %s%d)%s %s\n' "$C_BLD" "$i" "$C_RST" "${l%%$'\t'*}"; done
-      pick "$(t upd_pick)" "$i"
-      sel="${PROJ_LINES[$((REPLY_PICK-1))]}"
+      _proj_names=()
+      for _pl in "${PROJ_LINES[@]}"; do _proj_names+=("${_pl%%$'\t'*}"); done
+      menu "$(t upd_q)" "${_proj_names[@]}"
+      sel="${PROJ_LINES[$REPLY_PICK]}"
       PROJECT="${sel%%$'\t'*}"; BRANCH="${sel#*$'\t'}"
       ok "$(t upd_use "$PROJECT" "$BRANCH")"
     fi
@@ -450,7 +519,7 @@ fi
 # =============================================================================
 # ⑦ 获取站点文件
 # =============================================================================
-step "$(t bdl_title)"
+step bundle
 WORK="$(mktemp -d)"; DIST="$WORK/dist"; mkdir -p "$DIST"
 cleanup() { rm -rf "$WORK"; }
 trap cleanup EXIT
@@ -503,7 +572,7 @@ ok "$(t bdl_ok "$(find "$DIST" -maxdepth 1 -type f | wc -l)")"
 # =============================================================================
 # ⑧ 资源指纹 + manifest
 # =============================================================================
-step "$(t key_title)"
+step upload
 python3 - "$DIST" "$WORK" <<'PY'
 import sys, os, json, hashlib, mimetypes
 dist, work = sys.argv[1], sys.argv[2]
@@ -544,7 +613,7 @@ except Exception: print("")')
 # =============================================================================
 # ⑩ 查缺
 # =============================================================================
-step "$(t miss_title)"
+info "$(t miss_title)"
 MISSING=$(curl -sS --connect-timeout 20 -X POST "$API/pages/assets/check-missing" \
             -H "Authorization: Bearer $JWT" -H "Content-Type: application/json" \
             --data-binary @"$WORK/hashes.json" 2>/dev/null \
@@ -557,7 +626,7 @@ NMISS=$(printf '%s' "$MISSING" | jq_py 'import sys,json;print(len(json.load(sys.
 # ⑪ 上传
 # =============================================================================
 if [ "$NMISS" -gt 0 ]; then
-  step "$(t up_title)"
+  info "$(t up_title)"
   info "$(t miss_n "$NMISS")"
   python3 - "$DIST" "$WORK" "$MISSING" <<'PY'
 import sys, os, json, base64
@@ -590,7 +659,7 @@ curl -sS --connect-timeout 20 -X POST "$API/pages/assets/upsert-hashes" \
 # =============================================================================
 # ⑬ 创建部署
 # =============================================================================
-step "$(t dep_title)"
+step deploy
 CURL_ARGS=(-sS -X POST "$API/accounts/$AID/pages/projects/$PROJECT/deployments"
            -H "Authorization: Bearer $TOKEN"
            -F "manifest=<$WORK/manifest.json;type=application/json"
@@ -610,7 +679,7 @@ DID="${D_INFO[0]:-}"; DURL="${D_INFO[1]:-}"
 # =============================================================================
 # ⑭ 轮询
 # =============================================================================
-step "$(t poll_title)"
+info "$(t poll_title)"
 STATUS=""
 for _ in $(seq 1 40); do
   STATUS=$(curl -sS --connect-timeout 20 -H "Authorization: Bearer $TOKEN" \
