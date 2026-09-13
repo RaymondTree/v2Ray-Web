@@ -30,25 +30,35 @@ WASM，在浏览器的 Web Worker 中直接运行。打开网页、填入节点�
 **Linux / macOS：**
 
 ```bash
-curl -fsSL https://github.com/RaymondTree/v2Ray-Web/releases/cloudflare-linux.sh | sh
+curl -fsSL https://raw.githubusercontent.com/RaymondTree/v2Ray-Web/main/cloudflare-linux.sh | bash
 ```
 
 **Windows（PowerShell）：**
 
 ```powershell
-irm https://github.com/RaymondTree/v2Ray-Web/releases/cloudflare-windows.ps1 | iex
+irm https://raw.githubusercontent.com/RaymondTree/v2Ray-Web/main/cloudflare-windows.ps1 | iex
 ```
 
-脚本会提供交互式终端，按提示完成以下事情：
+> Windows 版脚本尚未发布，上面这条命令暂时不可用。
 
-1. 检测并安装 `node_modules`（仓库不带它，脚本自动 `npm install` / 拉取依赖）；
-2. 登录 Cloudflare 账号（浏览器授权或粘贴 API Token）；
-3. 选择或新建一个 Pages 项目；
-4. 自动上传本项目全部静态文件；
-5. 输出最终访问地址 `https://<项目名>.pages.dev`。
+脚本会在终端里用交互界面带你走完整个流程：
 
-> 注：脚本发布在仓库 Releases 页（`cloudflare-linux.sh` / `cloudflare-windows.ps1`），
-> 尚未包含在源码包内。脚本内置「自动下载 node_modules」这一步，用户无需手动装依赖。
+1. **选择语言**（中文 / English）；
+2. **环境自检** —— 缺 `curl` / `python3` / `tar` 时自动调用系统包管理器安装，
+   装不上则打印各发行版的安装命令并退出；
+3. **粘贴 Cloudflare API 令牌** —— 界面里会写明需要的权限
+   （`账户 → Cloudflare Pages → 编辑`）；没有令牌时输入 `b` 回车，
+   脚本用默认浏览器打开令牌创建页并列出点击路径；
+4. **选择「部署」或「更新」** —— 部署＝新建站点（自己起名），
+   更新＝覆盖账号里已有的某个站点；
+5. **自动下载最新站点包**并上传、部署；
+6. 输出访问地址 `https://<项目名>.pages.dev`，并可选绑定你自己的域名。
+
+> **不需要 node / npm / wrangler / git。** 脚本只依赖 `bash + curl + python3`，
+> 全程调 Cloudflare REST API，站点包从本仓库的 GitHub Release 自动获取。
+>
+> **需要用 `bash` 而不是 `sh`**：启用了 TUI 与关联数组，dash 不支持；
+> 脚本针对 `curl | bash` 的管道模式做了专门处理（交互从 `/dev/tty` 读取）。
 
 ### 方式二：手动部署
 
