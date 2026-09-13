@@ -1,0 +1,5 @@
+cert.pem
+key.pem
+wasm-src/cert.pem
+wasm-src/key.pem
+*.pem
