@@ -1,0 +1,16 @@
+{
+  "name": "v2ray-on-browser",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "serve:https": "node scripts/serve-https.mjs",
+    "serve:http": "npx serve . -l 12345"
+  },
+  "dependencies": {
+    "selfsigned": "^2.4.1"
+  },
+  "devDependencies": {
+    "acorn": "^8.18.0"
+  }
+}
