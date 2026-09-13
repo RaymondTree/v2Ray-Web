@@ -90,7 +90,7 @@ step() {  # step <key>：输出树分支（├─/└─）+ 阶段标题
   done
   CUR_STEP=$idx
   if [ "$idx" -eq $((${#STEPS[@]} - 1)) ]; then branch='└─'; else branch='├─'; fi
-  printf '%s│%s\n%s%s%s %s%s%s\n' "$C_DIM" "$C_RST" "$C_DIM" "$branch" "$C_RST" "$C_BLD$C_CYA" "$(step_name "$key")" "$C_RST"
+  printf '%s│%s\n%s%s%s %s[%d/%d] %s%s\n' "$C_DIM" "$C_RST" "$C_DIM" "$branch" "$C_RST" "$C_BLD$C_CYA" $((idx+1)) ${#STEPS[@]} "$(step_name "$key")" "$C_RST"
 }
 die()  { bad "$*"; exit 1; }
 
@@ -261,7 +261,7 @@ menu() {
     for ((i=0; i<n; i++)); do
       printf '\033[2K'
       if [ $i -eq $cur ]; then
-        printf '%s│%s  %s▸ %s%s\n' "$C_DIM" "$C_RST" "$C_CYA$C_BLD" "${opts[$i]}" "$C_RST"
+        printf '%s│%s  %s▸%s%s\n' "$C_DIM" "$C_RST" "$C_CYA$C_BLD" "${opts[$i]}" "$C_RST"
       else
         printf '%s│%s   %s%s%s\n' "$C_DIM" "$C_RST" "$C_DIM" "${opts[$i]}" "$C_RST"
       fi
