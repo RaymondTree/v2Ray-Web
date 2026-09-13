@@ -211,7 +211,7 @@ LANG="zh"
 t() { local k="$1"; shift; local ref="M_${LANG}[$k]"; local v="${!ref}"; printf "$v" "$@"; }
 
 # ── 交互小工具 ───────────────────────────────────────────────────────────────
-hr() { printf '%s%s%s\n' "$C_DIM" "────────────────────────────────────────────────────────────" "$C_RST"; }
+hr() { printf '%s│%s %s%s%s\n' "$C_DIM" "$C_RST" "$C_DIM" "──────────────────────────────────────────" "$C_RST"; }
 NO_TTY_MSG_ZH="没有可交互的终端（stdin 已关闭）。请把脚本下载后再运行，或用环境变量提供参数。"
 NO_TTY_MSG_EN="No interactive terminal (stdin closed). Download the script and run it, or pass parameters via environment variables."
 no_tty() { [ "$LANG" = "en" ] && bad "$NO_TTY_MSG_EN" || bad "$NO_TTY_MSG_ZH"; exit 1; }
@@ -222,8 +222,8 @@ _tty_read() {  # 普通读取 → REPLY_INPUT
 }
 ask() {  # ask <提示> [默认值]  → 结果写入 REPLY_INPUT
   local p="$1" def="${2:-}"
-  if [ -n "$def" ]; then printf '%s%s%s [%s]: ' "$C_BLD" "$p" "$C_RST" "$def"
-  else printf '%s%s%s: ' "$C_BLD" "$p" "$C_RST"; fi
+  if [ -n "$def" ]; then printf '%s│%s %s%s%s [%s]: ' "$C_DIM" "$C_RST" "$C_BLD" "$p" "$C_RST" "$def"
+  else printf '%s│%s %s%s%s: ' "$C_DIM" "$C_RST" "$C_BLD" "$p" "$C_RST"; fi
   _tty_read || { printf '\n'; no_tty; }
   REPLY_INPUT="${REPLY_INPUT:-$def}"
 }
@@ -252,7 +252,7 @@ menu() {
   local n=${#opts[@]} cur=0 key first=1
   [ "$n" -eq 0 ] && { REPLY_PICK=0; return; }
 
-  printf '%s%s%s\n' "$C_BLD" "$prompt" "$C_RST"
+  printf '%s│%s %s%s%s\n' "$C_DIM" "$C_RST" "$C_BLD" "$prompt" "$C_RST"
 
   _draw() {
     local i
@@ -261,9 +261,9 @@ menu() {
     for ((i=0; i<n; i++)); do
       printf '\033[2K'
       if [ $i -eq $cur ]; then
-        printf '  %s▸ %s%s\n' "$C_CYA$C_BLD" "${opts[$i]}" "$C_RST"
+        printf '%s│%s  %s▸ %s%s\n' "$C_DIM" "$C_RST" "$C_CYA$C_BLD" "${opts[$i]}" "$C_RST"
       else
-        printf '   %s%s%s\n' "$C_DIM" "${opts[$i]}" "$C_RST"
+        printf '%s│%s   %s%s%s\n' "$C_DIM" "$C_RST" "$C_DIM" "${opts[$i]}" "$C_RST"
       fi
     done
   }
@@ -327,8 +327,8 @@ is_tty() { [ -t 0 ] && [ -t 1 ]; }
 # ① 语言
 # =============================================================================
 printf '\033[H\033[2J'
-printf '%sXray-Web · Cloudflare Pages%s\n' "$C_BLD$C_CYA" "$C_RST"
-printf '%shttps://github.com/%s%s\n\n' "$C_DIM" "$REPO" "$C_RST"
+printf '%s│%s %sXray-Web · Cloudflare Pages%s\n' "$C_DIM" "$C_RST" "$C_BLD$C_CYA" "$C_RST"
+printf '%s│%s %shttps://github.com/%s%s\n\n' "$C_DIM" "$C_RST" "$C_DIM" "$REPO" "$C_RST"
 menu "请选择语言 / Select language" "中文" "English"
 [ "$REPLY_PICK" = "1" ] && LANG="en"
 printf '\033[H\033[2J'
@@ -376,12 +376,12 @@ for tool in $NEEDED; do
   else
     bad "$(t env_fail "$tool")"
     if [ -z "$PM" ]; then bad "$(t env_nopm)"; fi
-    printf '\n%s%s%s\n' "$C_BLD" "$(t env_manual)" "$C_RST"
-    printf '  Debian/Ubuntu : sudo apt install -y %s\n'  "$(pkg_name "$tool")"
-    printf '  Fedora/RHEL   : sudo dnf install -y %s\n'  "$(pkg_name "$tool")"
-    printf '  Arch          : sudo pacman -S %s\n'       "$(pkg_name "$tool")"
-    printf '  Alpine        : sudo apk add %s\n'         "$(pkg_name "$tool")"
-    printf '  openSUSE      : sudo zypper install %s\n'  "$(pkg_name "$tool")"
+    printf '\n%s│%s %s%s%s\n' "$C_DIM" "$C_RST" "$C_BLD" "$(t env_manual)" "$C_RST"
+    printf '%s│%s  Debian/Ubuntu : sudo apt install -y %s\n'  "$C_DIM" "$C_RST" "$(pkg_name "$tool")"
+    printf '%s│%s  Fedora/RHEL   : sudo dnf install -y %s\n'  "$C_DIM" "$C_RST" "$(pkg_name "$tool")"
+    printf '%s│%s  Arch          : sudo pacman -S %s\n'       "$C_DIM" "$C_RST" "$(pkg_name "$tool")"
+    printf '%s│%s  Alpine        : sudo apk add %s\n'         "$C_DIM" "$C_RST" "$(pkg_name "$tool")"
+    printf '%s│%s  openSUSE      : sudo zypper install %s\n'  "$C_DIM" "$C_RST" "$(pkg_name "$tool")"
     exit 1
   fi
 done
@@ -398,8 +398,8 @@ else
   tries=3
   while [ "$tries" -gt 0 ]; do
     printf '\n'
-    printf '%s%s%s\n' "$C_BLD" "$(t tok_title)" "$C_RST"
-    printf '  %s\n' "$(t tok_need)"
+    printf '%s│%s %s%s%s\n' "$C_DIM" "$C_RST" "$C_BLD" "$(t tok_title)" "$C_RST"
+    printf '%s│%s %s\n' "$C_DIM" "$C_RST" "$(t tok_need)"
     printf '\n'
     menu "$(t tok_q)" "$(t tok_opt1)" "$(t tok_opt2)"
     if [ "$REPLY_PICK" = "1" ]; then
@@ -602,7 +602,7 @@ for fn in sorted(os.listdir(dist)):
     manifest['/' + fn] = h
     hashes.append(h)
     rows.append(f'{h}\t{fn}\t{ct}\t{len(data)}')
-    print(f"   /{fn}  {h[:10]}...  {len(data)}B  {ct}")
+    print(f"│  /{fn}  {h[:10]}...  {len(data)}B  {ct}")
 open(os.path.join(work,'manifest.json'),'w').write(json.dumps(manifest))
 open(os.path.join(work,'hashes.json'),'w').write(json.dumps({"hashes": hashes}))
 open(os.path.join(work,'map.tsv'),'w').write('\n'.join(rows))
@@ -648,7 +648,7 @@ for row in open(os.path.join(work,'map.tsv')):
     data = open(os.path.join(dist, fn), 'rb').read()
     payload.append({"key": h, "value": base64.b64encode(data).decode(),
                     "metadata": {"contentType": ct}, "base64": True})
-    print(f"   + {fn} ({size}B)")
+    print(f"│  + {fn} ({size}B)")
 open(os.path.join(work,'upload.json'),'w').write(json.dumps(payload))
 PY
   UP=$(curl -sS --connect-timeout 20 -X POST "$API/pages/assets/upload" \
@@ -696,7 +696,7 @@ for _ in $(seq 1 40); do
            | jq_py 'import sys,json
 try: print(json.load(sys.stdin).get("result",{}).get("latest_stage",{}).get("status",""))
 except Exception: print("")')
-  printf '   %s%s%s\n' "$C_DIM" "$STATUS" "$C_RST"
+  printf '%s│%s   %s%s%s\n' "$C_DIM" "$C_RST" "$C_DIM" "$STATUS" "$C_RST"
   case "$STATUS" in
     success) break ;;
     failure|canceled) die "$(t poll_bad "$STATUS")" ;;
@@ -710,9 +710,9 @@ done
 # =============================================================================
 printf '\n'
 hr
-printf '%s  ✔ %s%s\n\n' "$C_BLD$C_GRN" "$(t ok_title)" "$C_RST"
-printf '   %s%-12s%s %shttps://%s.pages.dev%s\n' "$C_BLD" "$(t ok_prod)" "$C_RST" "$C_CYA" "$PROJECT" "$C_RST"
-printf '   %s%-12s%s %s%s%s\n\n'                  "$C_BLD" "$(t ok_prev)" "$C_RST" "$C_DIM" "$DURL" "$C_RST"
+printf '%s│%s %s  ✔ %s%s\n\n' "$C_DIM" "$C_RST" "$C_BLD$C_GRN" "$(t ok_title)" "$C_RST"
+printf '%s│%s   %s%-12s%s %shttps://%s.pages.dev%s\n' "$C_DIM" "$C_RST" "$C_BLD" "$(t ok_prod)" "$C_RST" "$C_CYA" "$PROJECT" "$C_RST"
+printf '%s│%s   %s%-12s%s %s%s%s\n\n' "$C_DIM" "$C_RST" "$C_BLD" "$(t ok_prev)" "$C_RST" "$C_DIM" "$DURL" "$C_RST"
 dim "   $(t ok_next)"
 hr
 
@@ -735,4 +735,4 @@ if [[ "$REPLY_INPUT" =~ ^[yY]$ ]]; then
   fi
 fi
 
-printf '\n%s\n\n' "$(t bye)"
+printf '\n%s│%s %s\n\n' "$C_DIM" "$C_RST" "$(t bye)"
