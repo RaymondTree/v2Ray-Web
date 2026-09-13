@@ -90,7 +90,7 @@ step() {  # step <key>：输出树分支（├─/└─）+ 阶段标题
   done
   CUR_STEP=$idx
   if [ "$idx" -eq $((${#STEPS[@]} - 1)) ]; then branch='└─'; else branch='├─'; fi
-  printf '\n%s%s%s %s%s%s\n' "$C_DIM" "$branch" "$C_RST" "$C_BLD$C_CYA" "$(step_name "$key")" "$C_RST"
+  printf '%s│%s\n%s%s%s %s%s%s\n' "$C_DIM" "$C_RST" "$C_DIM" "$branch" "$C_RST" "$C_BLD$C_CYA" "$(step_name "$key")" "$C_RST"
 }
 die()  { bad "$*"; exit 1; }
 
@@ -224,7 +224,7 @@ ask() {  # ask <提示> [默认值]  → 结果写入 REPLY_INPUT
   local p="$1" def="${2:-}"
   if [ -n "$def" ]; then printf '%s│%s %s%s%s [%s]: ' "$C_DIM" "$C_RST" "$C_BLD" "$p" "$C_RST" "$def"
   else printf '%s│%s %s%s%s: ' "$C_DIM" "$C_RST" "$C_BLD" "$p" "$C_RST"; fi
-  _tty_read || { printf '\n'; no_tty; }
+  _tty_read || { printf '%s│%s\n' "$C_DIM" "$C_RST"; no_tty; }
   REPLY_INPUT="${REPLY_INPUT:-$def}"
 }
 # 从 /dev/tty 读一个键 → REPLY_KEY（up/down/enter/esc/其他字符）
@@ -328,7 +328,7 @@ is_tty() { [ -t 0 ] && [ -t 1 ]; }
 # =============================================================================
 printf '\033[H\033[2J'
 printf '%s│%s %sXray-Web · Cloudflare Pages%s\n' "$C_DIM" "$C_RST" "$C_BLD$C_CYA" "$C_RST"
-printf '%s│%s %shttps://github.com/%s%s\n\n' "$C_DIM" "$C_RST" "$C_DIM" "$REPO" "$C_RST"
+printf '%s│%s %shttps://github.com/%s%s\n%s│%s\n' "$C_DIM" "$C_RST" "$C_DIM" "$REPO" "$C_RST" "$C_DIM" "$C_RST"
 menu "请选择语言 / Select language" "中文" "English"
 [ "$REPLY_PICK" = "1" ] && LANG="en"
 printf '\033[H\033[2J'
@@ -376,7 +376,7 @@ for tool in $NEEDED; do
   else
     bad "$(t env_fail "$tool")"
     if [ -z "$PM" ]; then bad "$(t env_nopm)"; fi
-    printf '\n%s│%s %s%s%s\n' "$C_DIM" "$C_RST" "$C_BLD" "$(t env_manual)" "$C_RST"
+    printf '%s│%s\n%s│%s %s%s%s\n' "$C_DIM" "$C_RST" "$C_DIM" "$C_RST" "$C_BLD" "$(t env_manual)" "$C_RST"
     printf '%s│%s  Debian/Ubuntu : sudo apt install -y %s\n'  "$C_DIM" "$C_RST" "$(pkg_name "$tool")"
     printf '%s│%s  Fedora/RHEL   : sudo dnf install -y %s\n'  "$C_DIM" "$C_RST" "$(pkg_name "$tool")"
     printf '%s│%s  Arch          : sudo pacman -S %s\n'       "$C_DIM" "$C_RST" "$(pkg_name "$tool")"
@@ -397,10 +397,10 @@ if [ -n "$TOKEN" ]; then
 else
   tries=3
   while [ "$tries" -gt 0 ]; do
-    printf '\n'
+    printf '%s│%s\n' "$C_DIM" "$C_RST"
     printf '%s│%s %s%s%s\n' "$C_DIM" "$C_RST" "$C_BLD" "$(t tok_title)" "$C_RST"
     printf '%s│%s %s\n' "$C_DIM" "$C_RST" "$(t tok_need)"
-    printf '\n'
+    printf '%s│%s\n' "$C_DIM" "$C_RST"
     menu "$(t tok_q)" "$(t tok_opt1)" "$(t tok_opt2)"
     if [ "$REPLY_PICK" = "1" ]; then
       URL="https://dash.cloudflare.com/profile/api-tokens"
@@ -503,7 +503,7 @@ if [ -z "$PROJECT" ]; then
 
   # ── ⑥ 新建项目（部署路径）
   if [ -z "$PROJECT" ]; then
-    printf '\n'
+    printf '%s│%s\n' "$C_DIM" "$C_RST"
     info "$(t proj_q)"
     while :; do
       ask "$(t proj_input)"
@@ -708,18 +708,18 @@ done
 # =============================================================================
 # ⑮ 完成
 # =============================================================================
-printf '\n'
+printf '%s│%s\n' "$C_DIM" "$C_RST"
 hr
-printf '%s│%s %s  ✔ %s%s\n\n' "$C_DIM" "$C_RST" "$C_BLD$C_GRN" "$(t ok_title)" "$C_RST"
+printf '%s│%s %s  ✔ %s%s\n%s│%s\n' "$C_DIM" "$C_RST" "$C_BLD$C_GRN" "$(t ok_title)" "$C_RST" "$C_DIM" "$C_RST"
 printf '%s│%s   %s%-12s%s %shttps://%s.pages.dev%s\n' "$C_DIM" "$C_RST" "$C_BLD" "$(t ok_prod)" "$C_RST" "$C_CYA" "$PROJECT" "$C_RST"
-printf '%s│%s   %s%-12s%s %s%s%s\n\n' "$C_DIM" "$C_RST" "$C_BLD" "$(t ok_prev)" "$C_RST" "$C_DIM" "$DURL" "$C_RST"
+printf '%s│%s   %s%-12s%s %s%s%s\n%s│%s\n' "$C_DIM" "$C_RST" "$C_BLD" "$(t ok_prev)" "$C_RST" "$C_DIM" "$DURL" "$C_RST" "$C_DIM" "$C_RST"
 dim "   $(t ok_next)"
 hr
 
 # =============================================================================
 # ⑯ 可选：绑定自定义域名
 # =============================================================================
-printf '\n'
+printf '%s│%s\n' "$C_DIM" "$C_RST"
 info "$(t dom_q)"
 ask "$(t dom_yn)" "n"
 if [[ "$REPLY_INPUT" =~ ^[yY]$ ]]; then
@@ -735,4 +735,4 @@ if [[ "$REPLY_INPUT" =~ ^[yY]$ ]]; then
   fi
 fi
 
-printf '\n%s│%s %s\n\n' "$C_DIM" "$C_RST" "$(t bye)"
+printf '%s│%s\n%s│%s %s\n%s│%s\n' "$C_DIM" "$C_RST" "$C_DIM" "$C_RST" "$(t bye)" "$C_DIM" "$C_RST"
