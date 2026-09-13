@@ -31,22 +31,16 @@ BUNDLE_URL="${CF_BUNDLE_URL:-}"
 
 # ── 颜色 ─────────────────────────────────────────────────────────────────────
 if [ -t 1 ]; then
-  C_RST=$'\033[0m'
-  C_RED=$'\033[38;2;230;57;70m'      # coral-mid  #e63946
-  C_GRN=$'\033[38;2;0;229;204m'     # cyan-bright #00e5cc
-  C_YEL=$'\033[38;2;255;176;32m'    # amber       #ffb020
-  C_CYA=$'\033[38;2;136;146;176m'   # info        #8892b0
-  C_BLD=$'\033[1m'
-  C_DIM=$'\033[38;2;90;100;128m'    # muted       #5a6480
-  C_ACC=$'\033[38;2;255;77;77m'     # accent coral#ff4d4d
+  C_RST=$'\033[0m';  C_RED=$'\033[31m';  C_GRN=$'\033[32m'
+  C_YEL=$'\033[33m'; C_CYA=$'\033[36m';  C_BLD=$'\033[1m'; C_DIM=$'\033[2m'
 else
-  C_RST=''; C_RED=''; C_GRN=''; C_YEL=''; C_CYA=''; C_BLD=''; C_DIM=''; C_ACC=''
+  C_RST=''; C_RED=''; C_GRN=''; C_YEL=''; C_CYA=''; C_BLD=''; C_DIM=''
 fi
-ok()   { printf '%s✔%s %s\n'   "$C_GRN" "$C_RST" "$*"; }
-bad()  { printf '%s✘%s %s\n'   "$C_RED" "$C_RST" "$*" >&2; }
-warn() { printf '%s▲%s %s\n'   "$C_YEL" "$C_RST" "$*"; }
-info() { printf '%s·%s %s\n'   "$C_CYA" "$C_RST" "$*"; }
-dim()  { printf '%s%s%s\n'     "$C_DIM" "$*" "$C_RST"; }
+ok()   { printf '%s│%s %s✔%s %s\n' "$C_DIM" "$C_RST" "$C_GRN" "$C_RST" "$*"; }
+bad()  { printf '%s│%s %s✘%s %s\n' "$C_DIM" "$C_RST" "$C_RED" "$C_RST" "$*" >&2; }
+warn() { printf '%s│%s %s▲%s %s\n' "$C_DIM" "$C_RST" "$C_YEL" "$C_RST" "$*"; }
+info() { printf '%s│%s %s·%s %s\n' "$C_DIM" "$C_RST" "$C_CYA" "$C_RST" "$*"; }
+dim()  { printf '%s│%s %s%s%s\n'   "$C_DIM" "$C_RST" "$C_DIM" "$*" "$C_RST"; }
 # ── 步骤树（左侧导航）────────────────────────────────────────────────────────
 # 7 个主要步骤；step 推进时清屏重绘左侧树
 STEPS=(lang token acct site bundle upload deploy)
@@ -64,24 +58,39 @@ step_name() {  # step_name <key> → 标题
   esac
 }
 
-render_tree() {  # 开头画一次静态流程树（顶格、最左侧）
-  local n=${#STEPS[@]} i nm branch
-  printf '%sXray-Web · Cloudflare Pages%s\n' "$C_BLD$C_ACC" "$C_RST"
-  for ((i=0; i<n; i++)); do
-    nm="$(step_name "${STEPS[$i]}")"
-    if [ $i -eq $((n-1)) ]; then branch='└─'; else branch='├─'; fi
-    printf '%s%s %s%s\n' "$C_DIM" "$branch" "$nm" "$C_RST"
-  done
-  printf '%s%s%s\n' "$C_DIM" "──────────────────────────────" "$C_RST"
+# box <多行文本>：用 ┌─┐│└┘ 方框框起，太长自动换行（python 处理中文字宽）
+box() {
+  python3 - "$1" "$C_DIM" "$C_RST" <<'PYBOX'
+import sys, unicodedata
+text = sys.argv[1]; dim = sys.argv[2]; rst = sys.argv[3]
+w = 52
+def dw(c): return 2 if unicodedata.east_asian_width(c) in 'FW' else 1
+lines = []
+for raw in text.split('\n'):
+    cur = ''; cw = 0
+    for ch in raw:
+        if cw + dw(ch) > w:
+            lines.append(cur); cur = ch; cw = dw(ch)
+        else:
+            cur += ch; cw += dw(ch)
+    if cur: lines.append(cur)
+b = '─' * (w + 2)
+print(f"{dim}│{rst}  {dim}┌{b}┐{rst}")
+for ln in lines:
+    pad = ' ' * (w - sum(dw(c) for c in ln))
+    print(f"{dim}│{rst}  {dim}│{rst} {ln}{pad} {dim}│{rst}")
+print(f"{dim}│{rst}  {dim}└{b}┘{rst}")
+PYBOX
 }
 
-step() {  # step <key>：输出 [n/7] 阶段标题（openclaw 流式风格，不重画树）
-  local key="$1" i idx=-1
+step() {  # step <key>：输出树分支（├─/└─）+ 阶段标题
+  local key="$1" i idx=-1 branch
   for ((i=0; i<${#STEPS[@]}; i++)); do
     if [ "${STEPS[$i]}" = "$key" ]; then idx=$i; break; fi
   done
   CUR_STEP=$idx
-  printf '\n%s[%d/%d] %s%s\n' "$C_BLD$C_ACC" $((idx+1)) ${#STEPS[@]} "$(step_name "$key")" "$C_RST"
+  if [ "$idx" -eq $((${#STEPS[@]} - 1)) ]; then branch='└─'; else branch='├─'; fi
+  printf '\n%s%s%s %s%s%s\n' "$C_DIM" "$branch" "$C_RST" "$C_BLD$C_CYA" "$(step_name "$key")" "$C_RST"
 }
 die()  { bad "$*"; exit 1; }
 
@@ -106,6 +115,9 @@ M_zh[env_ok]="环境就绪"; M_en[env_ok]="Environment ready"
 
 M_zh[tok_title]="Cloudflare API 令牌"; M_en[tok_title]="Cloudflare API Token"
 M_zh[tok_need]="需要的权限：账户 → Cloudflare Pages → 编辑"; M_en[tok_need]="Required permission: Account → Cloudflare Pages → Edit"
+M_zh[tok_q]="如何提供 API 令牌？"; M_en[tok_q]="How to provide the API token?"
+M_zh[tok_opt1]="输入令牌"; M_en[tok_opt1]="Enter token"
+M_zh[tok_opt2]="打开浏览器创建令牌"; M_en[tok_opt2]="Open browser to create token"
 M_zh[tok_label]="令牌"; M_en[tok_label]="Token"
 M_zh[tok_hint]="没有令牌？输入 %s 回车，我会打开浏览器帮你创建"; M_en[tok_hint]="No token? Type %s and press Enter to open the browser"
 M_zh[tok_opening]="正在打开浏览器…"; M_en[tok_opening]="Opening browser…"
@@ -315,13 +327,11 @@ is_tty() { [ -t 0 ] && [ -t 1 ]; }
 # ① 语言
 # =============================================================================
 printf '\033[H\033[2J'
-printf '  %sXray-Web · Cloudflare Pages%s\n' "$C_BLD$C_ACC" "$C_RST"
-printf '  %shttps://github.com/%s%s\n\n' "$C_DIM" "$REPO" "$C_RST"
+printf '%sXray-Web · Cloudflare Pages%s\n' "$C_BLD$C_CYA" "$C_RST"
+printf '%shttps://github.com/%s%s\n\n' "$C_DIM" "$REPO" "$C_RST"
 menu "请选择语言 / Select language" "中文" "English"
 [ "$REPLY_PICK" = "1" ] && LANG="en"
 printf '\033[H\033[2J'
-render_tree
-printf '\n'
 step lang
 dim "  $(t subtitle)"
 
@@ -388,28 +398,23 @@ else
   tries=3
   while [ "$tries" -gt 0 ]; do
     printf '\n'
-    hr
-    printf '%s  %s%s\n' "$C_BLD" "$(t tok_title)" "$C_RST"
+    printf '%s%s%s\n' "$C_BLD" "$(t tok_title)" "$C_RST"
     printf '  %s\n' "$(t tok_need)"
     printf '\n'
-    printf '  %s%s%s\n' "$C_DIM" "$(t tok_hint "b")" "$C_RST"
-    hr
-    ask "  $(t tok_label)"
-    TOKEN="$REPLY_INPUT"
-
-    if [ "$TOKEN" = "b" ] || [ "$TOKEN" = "B" ]; then
+    menu "$(t tok_q)" "$(t tok_opt1)" "$(t tok_opt2)"
+    if [ "$REPLY_PICK" = "1" ]; then
       URL="https://dash.cloudflare.com/profile/api-tokens"
-      info "$(t tok_opening)"
       if command -v xdg-open >/dev/null 2>&1; then xdg-open "$URL" >/dev/null 2>&1 &
       elif command -v open >/dev/null 2>&1;   then open "$URL" >/dev/null 2>&1 &
       elif command -v wslview >/dev/null 2>&1; then wslview "$URL" >/dev/null 2>&1 &
       else
-        bad "$(t tok_open_fail)"
-        printf '  %s\n\n' "$URL"
+        warn "$(t tok_open_fail)"
       fi
-      warn "$(t tok_steps)"
+      box "$(t tok_steps)"
       continue
     fi
+    ask "$(t tok_label)"
+    TOKEN="$REPLY_INPUT"
     [ -n "$TOKEN" ] || { bad "$(t tok_bad)"; tries=$((tries-1)); continue; }
 
     info "$(t tok_verify)"
@@ -452,9 +457,7 @@ for a in (d.get("result") or []): print(a["id"] + "\t" + a["name"])
 fi
 if [ -z "$AID" ]; then
   warn "$(t acct_manual)"
-  printf '\n%s%s%s\n' "$C_BLD" "$(t acct_how)" "$C_RST"
-  dim "  $(t acct_how1)"; dim "  $(t acct_how2)"; dim "  $(t acct_how3)"
-  printf '\n'
+  box "$(t acct_how1)"$'\n'"$(t acct_how2)"$'\n'"$(t acct_how3)"
   while :; do
     ask "$(t acct_input)"
     AID="$REPLY_INPUT"
