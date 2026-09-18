@@ -97,9 +97,7 @@ die()  { bad "$*"; exit 1; }
 # ── 多语言 ───────────────────────────────────────────────────────────────────
 # 多语言文案表（经 ${!ref} 间接访问）
 declare -A M_zh M_en
-M_zh[title]="Xray-Web · Cloudflare Pages 一键部署"
 M_zh[subtitle]="纯浏览器端 VLESS 代理，部署到你的 Cloudflare 账号"
-M_en[title]="Xray-Web · Cloudflare Pages one-click deploy"
 M_en[subtitle]="Browser-side VLESS proxy, deployed to your own Cloudflare account"
 
 M_zh[lang_q]="请选择语言"; M_en[lang_q]="Select language"
@@ -327,7 +325,14 @@ is_tty() { [ -t 0 ] && [ -t 1 ]; }
 # ① 语言
 # =============================================================================
 printf '\033[H\033[2J'
-printf '%s│%s %sXray-Web · Cloudflare Pages%s\n' "$C_DIM" "$C_RST" "$C_BLD$C_CYA" "$C_RST"
+_cyan=$'\033[36m'; _rst=$'\033[0m'
+printf '%s██╗   ██╗██████╗ ██████╗  █████╗ ██╗   ██╗    ██╗    ██╗███████╗██████╗%s\n'    "$_cyan" "$_rst"
+printf '%s██║   ██║╚════██╗██╔══██╗██╔══██╗╚██╗ ██╔╝    ██║    ██║██╔════╝██╔══██╗%s\n' "$_cyan" "$_rst"
+printf '%s██║   ██║ █████╔╝██████╔╝███████║ ╚████╔╝     ██║ █╗ ██║█████╗  ██████╔╝%s\n' "$_cyan" "$_rst"
+printf '%s╚██╗ ██╔╝██╔═══╝ ██╔══██╗██╔══██║  ╚██╔╝      ██║███╗██║██╔══╝  ██╔══██╗%s\n' "$_cyan" "$_rst"
+printf '%s ╚████╔╝ ███████╗██║  ██║██║  ██║   ██║       ╚███╔███╔╝███████╗██████╔╝%s\n' "$_cyan" "$_rst"
+printf '%s  ╚═══╝  ╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝        ╚══╝╚══╝ ╚══════╝╚═════╝%s\n' "$_cyan" "$_rst"
+printf '%s Cloudflare Pages                                        by RaymondTree%s\n' "$_cyan" "$_rst"
 printf '%s│%s %shttps://github.com/%s%s\n%s│%s\n' "$C_DIM" "$C_RST" "$C_DIM" "$REPO" "$C_RST" "$C_DIM" "$C_RST"
 menu "请选择语言 / Select language" "中文" "English"
 [ "$REPLY_PICK" = "1" ] && LANG="en"
